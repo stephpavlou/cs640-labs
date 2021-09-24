@@ -125,7 +125,7 @@ public class Iperfer {
             data_rate = ((num_packets*8000)/1000000)/((double)time);
             System.out.printf("sent=%d KB rate =%.3f Mbps", num_packets, data_rate);
         } catch(Exception ex) {
-            
+            System.out.println(ex);
         }
     }
     
@@ -158,7 +158,7 @@ public class Iperfer {
             server.close();
             System.out.printf("received=%d KB rate =%.3f Mbps", (num_bytes/1000), rate_received);
         } catch(Exception ex){
-            
+            System.out.println(ex);
         }
        
     }
