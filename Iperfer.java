@@ -32,7 +32,7 @@ public class Iperfer {
             // Check input values
             // Hostname
             try {
-                if(hostname_ip.length() > 253) {
+                if(hostname_ip.length() > 255) {
                     System.out.println("Error: hostname must be lesss than 254 ASCII characters");
                     System.exit(1);
                 }
@@ -122,7 +122,7 @@ public class Iperfer {
             
             out.close();
             socket.close();
-            data_rate = ((num_packets*8000)/1000000)/time;
+            data_rate = ((num_packets*8000)/1000000)/((double)time);
             System.out.printf("sent=%d KB rate =%.3f Mbps", num_packets, data_rate);
         } catch(Exception ex) {
             
