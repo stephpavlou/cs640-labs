@@ -18,6 +18,7 @@ public class Iperfer {
         String hostname_ip = "";
         int port_num = 0;
         int time = 0;
+        String acceptable_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-";
         // TODO code application logic here
         if(!(args.length == 3 || args.length == 7)) {
             System.out.println("Error: Invalid arguments");
@@ -31,6 +32,24 @@ public class Iperfer {
             // Check input values
             // Hostname
             try {
+                if(hostname_ip.length() > 253) {
+                    System.out.println("Error: hostname must be lesss than 254 ASCII characters");
+                    System.exit(1);
+                }
+                
+                for(int i = 0; i < hostname_ip.length(); i++) {
+                    boolean good = false;
+                    for(int j = 0; j < acceptable_chars.length();j++) {
+                        if(hostname_ip.charAt(i) == acceptable_chars.charAt(j)){
+                            good = true;
+                            break;
+                        }
+                    }
+                    if(!good) {
+                        System.out.println("Error: hostname must only contain valid characters");
+                        System.exit(1);
+                    }
+                }
                 
             } catch (Exception ex) {
                 
@@ -80,21 +99,25 @@ public class Iperfer {
     
     public static void run_client(String hostname_ip, int port_num, int time) {
         try{
-            int num_packets = 0;
+            //System.out.printf("hostname_ip: "+ hostname_ip +", port_num: %d, time: %d", port_num, time);
+            long num_packets = 0;
             double data_rate;
             Socket socket = new Socket(hostname_ip, port_num);
             System.out.println("Client has connected");
             PrintWriter out = new PrintWriter(socket.getOutputStream(),true);
             //String msg = "Hello World!";
-            byte barray[] = new byte[1000];
+            byte byte_array[] = new byte[1000];
             for(int i = 0; i < 1000; i++) {
-                barray[i] = 0;
+                byte_array[i] = 0;
             }
-            //ADD loop 
+            String msg = new String(byte_array);
+            //System.out.println("msg: " + msg);
+            //System.out.printf("msg.length(): %d\n", msg.length());
+            
             long target_time = System.currentTimeMillis() + (1000 * time);
             while(System.currentTimeMillis() < target_time) {
                 num_packets++;
-                out.println(barray);
+                out.println(msg);
             }
             
             out.close();
@@ -111,14 +134,29 @@ public class Iperfer {
             ServerSocket server = new ServerSocket(port_num);
             Socket socket = server.accept();
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            long num_bytes = 0;
+            long start_time = -1;
+            long end_time = 0;
             String line = "";
+            byte[] data;
             while((line = in.readLine()) != null) {
-                System.out.println(line);
+                if(start_time == -1) {
+                    start_time = System.currentTimeMillis();
+                }
+                data = line.getBytes();
+                num_bytes += data.length;
+                //System.out.println("received: " + line);
+                //System.out.printf("Length of byte array received: %d", data.length);
             }
+            end_time = System.currentTimeMillis();
+            long elapsed_time = end_time - start_time;
+            double elapsed_time_seconds = elapsed_time / 1000;
+            double rate_received = ((num_bytes * 8)/1000000)/elapsed_time_seconds;
             
             in.close();
             socket.close();
             server.close();
+            System.out.printf("received=%d KB rate =%.3f Mbps", (num_bytes/1000), rate_received);
         } catch(Exception ex){
             
         }
