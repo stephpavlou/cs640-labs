@@ -59,7 +59,7 @@ public class Client {
     {
         // Specify IP Address and port of the Server
         String address = "127.0.0.1";
-        int portNumber = 5000;
+        int portNumber = 8888;
         Client client = new Client(address, portNumber);
         client.start();
     }
