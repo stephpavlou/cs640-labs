@@ -32,6 +32,7 @@ public class Iperfer {
             // Check input values
             // Hostname
             try {
+                hostname_ip = args[2];
                 if(hostname_ip.length() > 255) {
                     System.out.println("Error: hostname must be lesss than 254 ASCII characters");
                     System.exit(1);
@@ -99,7 +100,7 @@ public class Iperfer {
     
     public static void run_client(String hostname_ip, int port_num, int time) {
         try{
-            //System.out.printf("hostname_ip: "+ hostname_ip +", port_num: %d, time: %d", port_num, time);
+            System.out.printf("hostname_ip: "+ hostname_ip +", port_num: %d, time: %d", port_num, time);
             long num_packets = 0;
             double data_rate;
             Socket socket = new Socket(hostname_ip, port_num);
@@ -122,7 +123,12 @@ public class Iperfer {
             
             out.close();
             socket.close();
-            data_rate = ((num_packets*8000)/1000000)/((double)time);
+            double bits_sent = num_packets*8000;
+            System.out.printf("bits_sent: %f", bits_sent);
+            double megabits_sent = bits_sent/1000000;
+            System.out.printf("megabits sent: %f", megabits_sent);
+            data_rate = megabits_sent/time;
+            //data_rate = ((num_packets*8000)/1000000)/((double)time);
             System.out.printf("sent=%d KB rate =%.3f Mbps", num_packets, data_rate);
         } catch(Exception ex) {
             System.out.println(ex);
@@ -151,7 +157,12 @@ public class Iperfer {
             end_time = System.currentTimeMillis();
             long elapsed_time = end_time - start_time;
             double elapsed_time_seconds = elapsed_time / 1000;
-            double rate_received = ((num_bytes * 8)/1000000)/elapsed_time_seconds;
+            System.out.printf("Elapsed time seconds: %f", elapsed_time_seconds);
+            double bits_received = num_bytes * 8;
+            System.out.printf("bits_received: %f", bits_received);
+            double megabits_received = bits_received / 1000000;
+            System.out.printf("megabits_received: %f", megabits_received);
+            double rate_received = megabits_received/elapsed_time_seconds;
             
             in.close();
             socket.close();
