@@ -55,6 +55,9 @@ public class RouteTable
 				}
 			}
 			
+			if(most == 0) {
+				return NULL;
+			}
 			return match;
 			
 			/*****************************************************************/
