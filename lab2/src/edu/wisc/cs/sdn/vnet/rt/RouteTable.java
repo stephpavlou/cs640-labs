@@ -39,8 +39,23 @@ public class RouteTable
         {
 			/*****************************************************************/
 			/* TODO: Find the route entry with the longest prefix match      */
+			String ipstr = (String)ip;
+			RouteEntry match = NULL;
+			int most = 0;
+			for(int i = 0; i < this.entries.size(); i++) {
+				String comp = (String)this.entries.get(i).getDestinationAddress;
+				for(int j = 0; j < ipstr.length(); j++) {
+					if(comp[j] != ipstr[j]) {
+						if(j > most) {
+							most = j;
+							match = this.entries.get(i);
+						}
+						break;
+					}
+				}
+			}
 			
-			return null;
+			return match;
 			
 			/*****************************************************************/
         }
