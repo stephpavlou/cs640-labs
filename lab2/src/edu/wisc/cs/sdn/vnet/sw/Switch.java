@@ -7,6 +7,8 @@ import edu.wisc.cs.sdn.vnet.Iface;
 
 // New Imports
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
+import java.util.Set;
 //
 
 
@@ -46,11 +48,14 @@ public class Switch extends Device
 		
 		/********************************************************************/
 		// Check table entries to see if src exists in table
-		byte[] sourceMac = getSourceMAC(etherPacket);
+		byte[] sourceMac = etherPacket.getSourceMACAddress();
 		SwitchEntry retrievedEntry = switchTable.get(sourceMac);
 		if (retrievedEntry != null) {
 			// If the entry exists, reset the time
-			retrievedEntry.setTimeStamp(System.currentTimeMillis());
+			long curTime = System.currentTimeMillis();
+			System.out.printf("Setting time to: %d\n", curTime);
+			retrievedEntry.setTimeStamp(curTime);
+			System.out.printf("Setting Iface to inIface: %h\n", inIface);
 			retrievedEntry.setIfNum(inIface);
 		} else {
 			SwitchEntry newEntry = new SwitchEntry(sourceMac, inIface, System.currentTimeMillis());
@@ -58,7 +63,7 @@ public class Switch extends Device
 		}
 		
 		// Check if table contains the current dest MAC
-		byte[] destMac = getDestinationMAC(etherPacket);
+		byte[] destMac = etherPacket.getDestinationMACAddress();
 		retrievedEntry = switchTable.get(destMac);
 		if (retrievedEntry != null) {
 			// Dest MAC exists in table
@@ -77,75 +82,90 @@ public class Switch extends Device
 			//	}
 			//}
 			int numFail = 0;
-			for (Map.Entry<byte[], SwitchEntry> entry : switchTable.entrySet()) {
-				byte[] key = entry.getKey();
-				SwitchEntry value = entry.getValue();
-				if(value.getIfNum().compareTo(inIface) < 0) {
-					if(!sendPacket(etherPacket, value.getIfNum())) {
-						numFail++;
+			System.out.printf("switchTable.isEmpty(): %b\n", switchTable.isEmpty());
+			if(!switchTable.isEmpty()) {
+				for (Map.Entry<byte[], SwitchEntry> entry : switchTable.entrySet()) {
+					System.out.printf("entry: %h\n",entry);
+					byte[] key = entry.getKey();
+					SwitchEntry value = entry.getValue();
+					System.out.printf("key: %h\n",key);
+					System.out.printf("value: %h\n", value);
+					Iface ifNum = value.getIfNum();
+					System.out.printf("ifNum: %h\n", ifNum);
+					long entryTime
+					if(!ifNum.equals(inIface)) {
+						if(!sendPacket(etherPacket, value.getIfNum())) {
+							numFail++;
+						}
 					}
-				}
 				
+				}
 			}
-			
-			
 		}
 		
 	}
-}
-
-
-private class SwitchEntry {
-	private byte[] macAddr;
-	private Iface ifNum;
-	private long timeStamp;
 	
-	SwitchEntry(byte[] macAddr, int ifnum, int timeStamp) {
-		this.macAddr = macAddr;
-		this.ifNum = ifNum;
-		this.timeStamp = timeStamp;
-	}
 	
-	byte[] getMacAddr () {
-		return macAddr;
-	}
-	
-	Iface getIfNum() {
-		return this.ifNum;
-	}
-	
-	void setIfNum(int inIfNum) {
-		this.ifNum = inIfNum;
-	}
-	
-	int getTimeStamp() {
-		return this.ttl;
-	}
-	
-	void setTimeStamp(int inTtl) {
-		this.ttl = inTtl;
-	}
-}
-
-public class TableChecker extends Thread {
-	
-	private final ConcurrentHashMap<byte[], SwitchEntry> switchTable;
-	
-	public TableChecker(ConcurrentHashMap<byte[], SwitchEntry> switchTable) {
-		this.switchTable = switchTable;
-	}
-	
-	public void run() {
-		while (1) {
-			for (Map.Entry<byte[], SwitchEntry> entry : switchTable.entrySet()) {
-				byte[] key = entry.getKey();
-				SwitchEntry value = entry.getValue();
-				if((System.currentTimeMillis() - value.getTimeStamp()) > 15000 ) {
-					switchTable.remove(key, value);
-				}
-				
-			}
+	class SwitchEntry {
+		private byte[] macAddr;
+		private Iface ifNum;
+		private long timeStamp;
+		
+		SwitchEntry(byte[] macAddr, Iface ifNum, long timeStamp) {
+			System.out.println("NEW ENTRY");
+			System.out.printf("macAddr: %h\n", macAddr);
+			System.out.printf("ifnum: %h\n", ifNum);
+			System.out.printf("timeStamp: %h\n", timeStamp);
+			this.macAddr = macAddr;
+			this.ifNum = ifNum;
+			this.timeStamp = timeStamp;
+		}
+		
+		byte[] getMacAddr () {
+			return macAddr;
+		}
+		
+		Iface getIfNum() {
+			return ifNum;
+		}
+		
+		void setIfNum(Iface ifNum) {
+			this.ifNum = ifNum;
+		}
+		
+		long getTimeStamp() {
+			return timeStamp;
+		}
+		
+		void setTimeStamp(long timeStamp) {
+			this.timeStamp = timeStamp;
 		}
 	}
+
+	class TableChecker extends Thread {
+		
+		private final ConcurrentHashMap<byte[], SwitchEntry> switchTable;
+		
+		public TableChecker(ConcurrentHashMap<byte[], SwitchEntry> switchTable) {
+			this.switchTable = switchTable;
+		}
+		
+		public void run() {
+			System.out.println("STARTING THREAD");
+			while (true) {
+				for (Map.Entry<byte[], SwitchEntry> entry : switchTable.entrySet()) {
+					byte[] key = entry.getKey();
+					SwitchEntry value = entry.getValue();
+					if((System.currentTimeMillis() - value.getTimeStamp()) > 15000 ) {
+						switchTable.remove(key, value);
+					}
+					
+				}
+			}
+		}
+		
+	}
 	
 }
+
+
