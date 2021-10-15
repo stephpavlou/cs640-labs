@@ -9,6 +9,7 @@ import edu.wisc.cs.sdn.vnet.Iface;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.HashMap;
 //
 
 
@@ -30,7 +31,8 @@ public class Switch extends Device
 		super(host,logfile);
 		// ***NEW*** part of init
 		switchTable = new ConcurrentHashMap<byte[], SwitchEntry>();
-		new Thread(new TableChecker(switchTable));
+		TableChecker checkerThread = new TableChecker(switchTable);
+		checkerThread.start();
 	}
 
 	/**
@@ -58,7 +60,7 @@ public class Switch extends Device
 			System.out.printf("Setting Iface to inIface: %h\n", inIface);
 			retrievedEntry.setIfNum(inIface);
 		} else {
-			SwitchEntry newEntry = new SwitchEntry(sourceMac, inIface, System.currentTimeMillis());
+			SwitchEntry newEntry = new SwitchEntry(inIface, System.currentTimeMillis());
 			switchTable.put(sourceMac, newEntry);
 		}
 		
@@ -67,38 +69,21 @@ public class Switch extends Device
 		retrievedEntry = switchTable.get(destMac);
 		if (retrievedEntry != null) {
 			// Dest MAC exists in table
+			System.out.printf("Entry Found. Sending on %h\n", retrievedEntry.getIfNum());
 			sendPacket(etherPacket, retrievedEntry.getIfNum());
 		}
 		else {
+			System.out.println("Entry Not Found. Broadcasting.");
 			// Dest MAC does not exist in table -> broadcast
-			//HashMap<String, Iface> interfaces = getInterfaces();
-			//int numFail = 0;
-			//for(Map.Entry<String, IFace> if_entry : iterfaces.entrySet()) {
-			//	if(if_entry.getValue().compareTo(inIface) < 0) {
-			//		// Do broadcast to this interface (DEST)
-			//		if(!sendPacket(etherPacket, if_entry.getValue())){
-			//			numFail++;
-			//		}
-			//	}
-			//}
+			HashMap<String, Iface> interfaces = (HashMap)getInterfaces();
 			int numFail = 0;
-			System.out.printf("switchTable.isEmpty(): %b\n", switchTable.isEmpty());
-			if(!switchTable.isEmpty()) {
-				for (Map.Entry<byte[], SwitchEntry> entry : switchTable.entrySet()) {
-					System.out.printf("entry: %h\n",entry);
-					byte[] key = entry.getKey();
-					SwitchEntry value = entry.getValue();
-					System.out.printf("key: %h\n",key);
-					System.out.printf("value: %h\n", value);
-					Iface ifNum = value.getIfNum();
-					System.out.printf("ifNum: %h\n", ifNum);
-					long entryTime
-					if(!ifNum.equals(inIface)) {
-						if(!sendPacket(etherPacket, value.getIfNum())) {
-							numFail++;
-						}
+			for(Map.Entry<String, Iface> if_entry : interfaces.entrySet()) {
+				if(!if_entry.getValue().equals(inIface)) {
+					// Do broadcast to this interface (DEST)
+					System.out.printf("Broadcasting on: %h\n", if_entry.getValue());
+					if(!sendPacket(etherPacket, if_entry.getValue())){
+						numFail++;
 					}
-				
 				}
 			}
 		}
@@ -107,22 +92,13 @@ public class Switch extends Device
 	
 	
 	class SwitchEntry {
-		private byte[] macAddr;
 		private Iface ifNum;
 		private long timeStamp;
 		
-		SwitchEntry(byte[] macAddr, Iface ifNum, long timeStamp) {
+		SwitchEntry(Iface ifNum, long timeStamp) {
 			System.out.println("NEW ENTRY");
-			System.out.printf("macAddr: %h\n", macAddr);
-			System.out.printf("ifnum: %h\n", ifNum);
-			System.out.printf("timeStamp: %h\n", timeStamp);
-			this.macAddr = macAddr;
 			this.ifNum = ifNum;
 			this.timeStamp = timeStamp;
-		}
-		
-		byte[] getMacAddr () {
-			return macAddr;
 		}
 		
 		Iface getIfNum() {
