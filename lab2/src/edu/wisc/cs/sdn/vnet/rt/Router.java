@@ -87,5 +87,60 @@ public class Router extends Device
 		
 		
 		/********************************************************************/
+		//check if etherPacket contains an IPv4
+		if(etherPacket.getEtherType() != TYPE_IPv4) {
+			return;
+		}
+
+		//verify checksum and TTL of IPv4 packet
+		IPv4 payloadin = (IPv4)etherPacket.getPayload();
+		short checksum = payloadin.getChecksum();
+		short ttl = payloadin.getTtl();
+		short computed_checksum;
+
+		// copied from Serialize() in IPv4.java
+		///////////////////////////////////////
+		byte[] payloadData = null;
+        if (payload != null) {
+            payload.setParent(this);
+            payloadData = payload.serialize();
+        }
+
+		byte[] data = new byte[payloadin.totalLength];
+        ByteBuffer bb = ByteBuffer.wrap(data);
+
+        bb.put((byte) (((payloadin.version & 0xf) << 4) | (payloadin.headerLength & 0xf)));
+        bb.put(payloadin.diffServ);
+        bb.putShort(payloadin.totalLength);
+        bb.putShort(payloadin.identification);
+        bb.putShort((short) (((payloadin.flags & 0x7) << 13) | (payloadin.fragmentOffset & 0x1fff)));
+        bb.put(payloadin.ttl);
+        bb.put(payloadin.protocol);
+        bb.putShort(payloadin.checksum);
+        bb.putInt(payloadin.sourceAddress);
+        bb.putInt(payloadin.destinationAddress);
+        if (payloadin.options != null)
+            bb.put(payloadin.options);
+        if (payloadData != null)
+            bb.put(payloadData);
+
+		payloadin.setChecksum(0);
+        // compute checksum if needed
+        if (payloadin.checksum == 0) {
+            bb.rewind();
+            int accumulation = 0;
+            for (int i = 0; i < payloadin.headerLength * 2; ++i) {
+                accumulation += 0xffff & bb.getShort();
+            }
+            accumulation = ((accumulation >> 16) & 0xffff)
+                    + (accumulation & 0xffff);
+            payloadin.checksum = (short) (~accumulation & 0xffff);
+            bb.putShort(10, computed_checksum);
+        }
+		//////////////////////////////////////
+		ttl--;
+		if(computed_checksum != checksum || ttl == 0) {
+			return;
+		}
 	}
 }
