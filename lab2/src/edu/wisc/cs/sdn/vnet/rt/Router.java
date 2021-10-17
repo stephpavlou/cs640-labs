@@ -107,5 +107,29 @@ public class Router extends Device
 		if(computed_checksum != checksum || ttl == 0) {
 			return;
 		}
+		
+		int payloadDest = payloadin.getDestinationAddress();
+		
+		for (Iface curIface: interfaces) {
+			int ifaceIp = curIface.getIpAddress();
+			if (ifaceIp == payloadDest) {
+				return;
+			}
+		}
+		
+		
+		// FORWARDING PACKETS
+		
+		RouteEntry matchRouteEntry = routeTable.lookup(payloadDest);
+		if (matchRouteEntry == null) {
+			return;
+		}
+		
+		ArpEntry matchArpEntry = arpCache.lookup(payloadDest);
+		MACAddress ArpEntryMac = matchArpEntry.getMac();
+		etherPacket.setDestinationMACAddress(ArpEntryMac.toString());
+		Iface routeEntryIface = matchRouteEntry.getInterface();
+		etherPacket.setSourceMACAddress(routeEntryIface.getMacAddress().toString());
+		sendPacket(etherPacket, routeEntryIface);
 	}
 }
