@@ -95,8 +95,7 @@ public class Router extends Device
 		//verify checksum and TTL of IPv4 packet
 		IPv4 payloadin = (IPv4)etherPacket.getPayload();
 		short checksum = payloadin.getChecksum();
-		short ttl = payloadin.getTtl();
-		short computed_checksum;
+		short ttl, computed_checksum;
 
 		payloadin.setChecksum(0);
 		payloadin.serialize();
@@ -106,6 +105,7 @@ public class Router extends Device
 			return;
 		}
 
+		ttl = payloadin.getTtl();
 		ttl--;
 		if(computed_checksum != checksum || ttl == 0) {
 			return;
