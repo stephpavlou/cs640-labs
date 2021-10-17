@@ -155,6 +155,7 @@ public class Router extends Device
 		ArpEntry matchArpEntry = arpCache.lookup(payloadDest);
 		if (matchArpEntry == null) {
 			System.out.println("matchArpEntry not found!");
+			return;
 		} else {
 			System.out.println("matchArpEntry is not null.");
 		}
@@ -174,6 +175,18 @@ public class Router extends Device
 			System.out.println("routeEntryIFace is null!");
 		} else {
 			System.out.println("routeEntryIface is not null.");
+		}
+		
+		if(routeEntryIface.getMacAddress() == null) {
+			System.out.println("RouteEntryMacAddr is null!");
+		} else {
+			System.out.println("RouteEntryMacAddr is not null.");
+		}
+		
+		if(routeEntryIface.getMacAddress().toString() == null) {
+			System.out.println("RouteEntryMacAddrStr is null!");
+		} else {
+			System.out.println("RouteEntryMacAddrStr is not null.");
 		}
 		
 		etherPacket.setSourceMACAddress(routeEntryIface.getMacAddress().toString());
