@@ -101,12 +101,9 @@ public class Router extends Device
 		payloadin.serialize();
 		computed_checksum = payloadin.getChecksum();
 
-		if(computed_checksum != checksum) {
-			return;
-		}
-
 		ttl = payloadin.getTtl();
 		ttl--;
+
 		if(computed_checksum != checksum || ttl == 0) {
 			return;
 		}
