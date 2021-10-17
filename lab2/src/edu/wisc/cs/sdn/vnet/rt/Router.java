@@ -5,6 +5,10 @@ import edu.wisc.cs.sdn.vnet.DumpFile;
 import edu.wisc.cs.sdn.vnet.Iface;
 
 import net.floodlightcontroller.packet.Ethernet;
+// NEW IMPORTS
+import net.floodlightcontroller.packet.IPv4;
+import net.floodlightcontroller.packet.MACAddress;
+import java.util.Map;
 
 /**
  * @author Aaron Gember-Jacobson and Anubhavnidhi Abhashkumar
@@ -88,16 +92,17 @@ public class Router extends Device
 		
 		/********************************************************************/
 		//check if etherPacket contains an IPv4
-		if(etherPacket.getEtherType() != TYPE_IPv4) {
+		if(etherPacket.getEtherType() != etherPacket.TYPE_IPv4) {
 			return;
 		}
 
 		//verify checksum and TTL of IPv4 packet
 		IPv4 payloadin = (IPv4)etherPacket.getPayload();
 		short checksum = payloadin.getChecksum();
-		short ttl, computed_checksum;
+		short computed_checksum;
+		byte ttl;
 
-		payloadin.setChecksum(0);
+		payloadin.setChecksum((short)0);
 		payloadin.serialize();
 		computed_checksum = payloadin.getChecksum();
 
@@ -107,10 +112,11 @@ public class Router extends Device
 		if(computed_checksum != checksum || ttl == 0) {
 			return;
 		}
-		
+		payloadin.setTtl(ttl);
 		int payloadDest = payloadin.getDestinationAddress();
 		
-		for (Iface curIface: interfaces) {
+		for(Map.Entry<String, Iface> curMapEntry : interfaces.entrySet()) {
+			Iface curIface = curMapEntry.getValue();
 			int ifaceIp = curIface.getIpAddress();
 			if (ifaceIp == payloadDest) {
 				return;
