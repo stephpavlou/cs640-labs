@@ -48,8 +48,17 @@ public class RouteTable
 				//String comp = (String)this.entries.get(i).getDestinationAddress;
 				int compIp = curEntry.getDestinationAddress();
 				int compMask = curEntry.getMaskAddress();
+				
+				System.out.printf("curEntry.destinationAddress: %d\n", compIp);
+				System.out.printf("curEntry.gatewayAddress: %d\n", curEntry.getGatewayAddress());
+				System.out.printf("curEntry.maskAddress: %d\n", curEntry.getMaskAddress());
+				System.out.printf("Given ip: %d\n", ip);
+				System.out.printf("Masked given: %d\n", (ip & compMask));
+				System.out.printf("Masked entry: %d\n", (compIp & compMask));
+				
 				if((ip & compMask) == (compIp & compMask)) {
-					if (compMask > most) {
+					System.out.println("Masked compared IP and masked giben IP match!");
+					if (compMask < most) {
 						most = compMask;
 						match = curEntry;
 					}

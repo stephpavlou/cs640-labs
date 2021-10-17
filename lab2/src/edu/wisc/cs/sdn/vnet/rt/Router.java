@@ -93,6 +93,7 @@ public class Router extends Device
 		/********************************************************************/
 		//check if etherPacket contains an IPv4
 		if(etherPacket.getEtherType() != etherPacket.TYPE_IPv4) {
+			System.out.println("Packet is not IPv4. Dropping packet.");
 			return;
 		}
 
@@ -109,7 +110,12 @@ public class Router extends Device
 		ttl = payloadin.getTtl();
 		ttl--;
 
-		if(computed_checksum != checksum || ttl == 0) {
+		if(computed_checksum != checksum) {
+			System.out.println("Packet has bad checksum. Dropping packet.");
+			return;
+		}
+		if (ttl == 0) {
+			System.out.println("Packet has a decremented ttl of 0. Dropping packet.");
 			return;
 		}
 		payloadin.setTtl(ttl);
@@ -119,6 +125,7 @@ public class Router extends Device
 			Iface curIface = curMapEntry.getValue();
 			int ifaceIp = curIface.getIpAddress();
 			if (ifaceIp == payloadDest) {
+				System.out.println("Packet dest IP matches an Interface IP. Dropping Packet.");
 				return;
 			}
 		}
@@ -128,10 +135,18 @@ public class Router extends Device
 		
 		RouteEntry matchRouteEntry = routeTable.lookup(payloadDest);
 		if (matchRouteEntry == null) {
+			System.out.println("No route entry matching destination. Dropping Packet.");
 			return;
 		}
+		System.out.println("Found Entry!");
+		System.out.printf("matchRouteEntry.destinationAddress: %d\n", matchRouteEntry.getDestinationAddress());
+		System.out.printf("curEntry.gatewayAddress: %d\n", MatchRouteEntry.getGatewayAddress());
+		System.out.printf("curEntry.maskAddress: %d\n", MatchRouteEntry.getMaskAddress());
 		
 		ArpEntry matchArpEntry = arpCache.lookup(payloadDest);
+		if (matchArpEntry == null) {
+			System.out.println("matchArpEntry not found!");
+		}
 		MACAddress ArpEntryMac = matchArpEntry.getMac();
 		etherPacket.setDestinationMACAddress(ArpEntryMac.toString());
 		Iface routeEntryIface = matchRouteEntry.getInterface();
