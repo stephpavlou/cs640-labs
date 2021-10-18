@@ -31,7 +31,10 @@ public class Switch extends Device
 	{
 		super(host,logfile);
 		// ***NEW*** part of init
+		// Here we initialize the forward table
 		switchTable = new ConcurrentHashMap<String, SwitchEntry>();
+		
+		// Here we initialize and start the thread that checks the forward table
 		TableChecker checkerThread = new TableChecker(switchTable);
 		checkerThread.start();
 	}
@@ -50,7 +53,8 @@ public class Switch extends Device
 		/* TODO: Handle packets                                             */
 		
 		/********************************************************************/
-		// Check table entries to see if src exists in table
+		
+		// Check table entries to see if src MAC exists in table
 		MACAddress sourceMac = etherPacket.getSourceMAC();
 		//System.out.printf("Checking Table for source MAC: %s\n", sourceMac);
 		SwitchEntry retrievedEntry = switchTable.get(sourceMac.toString());
@@ -58,13 +62,16 @@ public class Switch extends Device
 		if (retrievedEntry != null) {
 			System.out.println("Refreshing table entry.");
 			System.out.printf("Found entry key: %s\n", sourceMac.toString());
-			// If the entry exists, reset the time
+			
+			// If the entry exists, reset the time, and update the Iface in case of a change
 			long curTime = System.currentTimeMillis();
 			System.out.printf("Setting time to: %d\n", curTime);
 			retrievedEntry.setTimeStamp(curTime);
 			System.out.printf("Setting Iface to inIface: %s\n", inIface.getName());
 			retrievedEntry.setIfNum(inIface);
 		} else {
+			
+			// If the entry does not exist, make a new entry
 			System.out.println("Adding new table entry.");
 			long curTime = System.currentTimeMillis();
 			SwitchEntry newEntry = new SwitchEntry(inIface, curTime);
@@ -74,23 +81,29 @@ public class Switch extends Device
 			switchTable.put(sourceMac.toString(), newEntry);
 		}
 		
-		// Check if table contains the current dest MAC
+		// Check if Forwarding table contains the current dest MAC
 		System.out.println("USING SWITCH TABLE TO SEND PACKET");
 		MACAddress destMac = etherPacket.getDestinationMAC();
 		System.out.printf("destMac: %s\n", destMac.toString());
 		retrievedEntry = switchTable.get(destMac.toString());
 		if (retrievedEntry != null) {
-			// Dest MAC exists in table
+			
+			// Dest MAC exists in forwarding table, send the packet on interface in table entry
 			System.out.printf("Entry Found. Sending on %s\n", retrievedEntry.getIfNum().getName());
 			sendPacket(etherPacket, retrievedEntry.getIfNum());
 		}
 		else {
 			System.out.println("Entry Not Found. Broadcasting.");
-			// Dest MAC does not exist in table -> broadcast
+			
+			// Dest MAC does not exist in table -> broadcast on all interfaces except the interface
+			// that the packet was received on
 			HashMap<String, Iface> interfaces = (HashMap)getInterfaces();
 			int numFail = 0;
+			
+			// This loop iterates over all interfaces of this switch
 			for(Map.Entry<String, Iface> if_entry : interfaces.entrySet()) {
 				if(!if_entry.getValue().equals(inIface)) {
+					
 					// Do broadcast to this interface (DEST)
 					System.out.printf("Broadcasting on: %s\n", if_entry.getValue().getName());
 					if(!sendPacket(etherPacket, if_entry.getValue())){
@@ -102,11 +115,27 @@ public class Switch extends Device
 		
 	}
 	
+	/**
+	*  class: SwitchEntry
+	* SwitchEntry is an object used to help store information in the forwarding table.
+	* The interface number and the timestamp are stored in the contents of this object.
+	* SwitchEntries are intended to be used as values in a hashtable, with the key being
+	* the MAC address corresponding to the interface and timestamp. This class also includes
+	* some helper setter and getter functions to access provate fields.
+	*
+	**/
+	
 	
 	class SwitchEntry {
 		private Iface ifNum;
 		private long timeStamp;
 		
+		
+		/**
+		* This is the constructor for the class, it assigns the arguments to the private fields.
+		*
+		*
+		**/
 		SwitchEntry(Iface ifNum, long timeStamp) {
 			System.out.println("NEW ENTRY:");
 			System.out.printf("ifNum: %h\n", ifNum);
@@ -114,6 +143,12 @@ public class Switch extends Device
 			this.ifNum = ifNum;
 			this.timeStamp = timeStamp;
 		}
+		
+		/**
+		* The following functions are standard setter and getter functions
+		* meant to assist in using the private fields of the class.
+		*
+		**/
 		
 		Iface getIfNum() {
 			return ifNum;
@@ -132,14 +167,28 @@ public class Switch extends Device
 		}
 	}
 
+	/**
+	*	class TableChecker:
+	* 	This class is meant to be run as a helper thread that will look throught
+	*	the forward table, and remove any entries that are older than 15 seconds.
+	*
+	**/
+
 	class TableChecker extends Thread {
 		
+		// This is used for the thread to haver access to the forward table
 		private final ConcurrentHashMap<String, SwitchEntry> switchTable;
 		
+		
+		// This is the constructor for the class, it allows the forward table to be passed in
 		public TableChecker(ConcurrentHashMap<String, SwitchEntry> switchTable) {
 			this.switchTable = switchTable;
 		}
 		
+		
+		// This is the code run by the thread, which continuously searches the table for 
+		// entries older than 15 seconds. If the thread finds such an entry, it removes the entry
+		// from the list.
 		public void run() {
 			System.out.println("STARTING THREAD");
 			while (true) {

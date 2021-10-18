@@ -46,6 +46,7 @@ public class RouteTable
 				RouteEntry curEntry = this.entries.get(i);
 				
 				//String comp = (String)this.entries.get(i).getDestinationAddress;
+				// This gets the destination address and mask of the entry
 				int compIp = curEntry.getDestinationAddress();
 				int compMask = curEntry.getMaskAddress();
 				
@@ -56,6 +57,10 @@ public class RouteTable
 				System.out.printf("Masked given: %d\n", (ip & compMask));
 				System.out.printf("Masked entry: %d\n", (compIp & compMask));
 				
+				// If the masked given IP and masked found IP are the same
+				// and the mask is longer than previous masks (prefixes are longer, associated
+				// the mask is a run of 1's from the left, the longest mask is the most negative
+				// mask)
 				if((ip & compMask) == (compIp & compMask)) {
 					System.out.println("Masked compared IP and masked giben IP match!");
 					if (compMask < most) {
