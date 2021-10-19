@@ -39,23 +39,21 @@ public class RouteTable
         {
 			/*****************************************************************/
 			/* TODO: Find the route entry with the longest prefix match      */
-			//String ipstr = (String)ip;
 			RouteEntry match = null;
 			int most = 0;
 			for(int i = 0; i < this.entries.size(); i++) {
 				RouteEntry curEntry = this.entries.get(i);
 				
-				//String comp = (String)this.entries.get(i).getDestinationAddress;
 				// This gets the destination address and mask of the entry
 				int compIp = curEntry.getDestinationAddress();
 				int compMask = curEntry.getMaskAddress();
 				
-				System.out.printf("curEntry.destinationAddress: %d\n", compIp);
-				System.out.printf("curEntry.gatewayAddress: %d\n", curEntry.getGatewayAddress());
-				System.out.printf("curEntry.maskAddress: %d\n", curEntry.getMaskAddress());
-				System.out.printf("Given ip: %d\n", ip);
-				System.out.printf("Masked given: %d\n", (ip & compMask));
-				System.out.printf("Masked entry: %d\n", (compIp & compMask));
+				//System.out.printf("curEntry.destinationAddress: %d\n", compIp);
+				//System.out.printf("curEntry.gatewayAddress: %d\n", curEntry.getGatewayAddress());
+				//System.out.printf("curEntry.maskAddress: %d\n", curEntry.getMaskAddress());
+				//System.out.printf("Given ip: %d\n", ip);
+				//System.out.printf("Masked given: %d\n", (ip & compMask));
+				//System.out.printf("Masked entry: %d\n", (compIp & compMask));
 				
 				// If the masked given IP and masked found IP are the same
 				// and the mask is longer than previous masks (prefixes are longer, associated
@@ -68,20 +66,7 @@ public class RouteTable
 						match = curEntry;
 					}
 				}
-				//for(int j = 0; j < ipstr.length(); j++) {
-				//	if(comp[j] != ipstr[j]) {
-				//		if(j > most) {
-				//			most = j;
-				//			match = this.entries.get(i);
-				//		}
-				//		break;
-				//	}
-				//}
 			}
-			
-			//if(most == 0) {
-			//	return NULL;
-			//}
 			return match;
 			
 			/*****************************************************************/

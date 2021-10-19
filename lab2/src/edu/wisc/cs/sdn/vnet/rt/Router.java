@@ -93,7 +93,7 @@ public class Router extends Device
 		/********************************************************************/
 		//check if etherPacket contains an IPv4
 		if(etherPacket.getEtherType() != etherPacket.TYPE_IPv4) {
-			System.out.println("Packet is not IPv4. Dropping packet.");
+			//System.out.println("Packet is not IPv4. Dropping packet.");
 			return;
 		}
 
@@ -111,7 +111,7 @@ public class Router extends Device
 		
 
 		if(computed_checksum != checksum) {
-			System.out.println("Packet has bad checksum. Dropping packet.");
+			//System.out.println("Packet has bad checksum. Dropping packet.");
 			return;
 		}
 		
@@ -119,78 +119,98 @@ public class Router extends Device
 		ttl--;
 		
 		if (ttl == 0) {
-			System.out.println("Packet has a decremented ttl of 0. Dropping packet.");
+			//System.out.println("Packet has a decremented ttl of 0. Dropping packet.");
 			return;
 		}
 		
+		// With new value for ttl, checksum needs to be recalculated
 		payloadin.setTtl(ttl);
 		
 		payloadin.setChecksum((short)0);
 		payloadin.serialize();
 		
+		
+		// Here we check that if the destination address is the same as an address
+		// for one of its routers, the router drops the packet
 		int payloadDest = payloadin.getDestinationAddress();
 		
 		for(Map.Entry<String, Iface> curMapEntry : interfaces.entrySet()) {
 			Iface curIface = curMapEntry.getValue();
 			int ifaceIp = curIface.getIpAddress();
 			if (ifaceIp == payloadDest) {
-				System.out.println("Packet dest IP matches an Interface IP. Dropping Packet.");
+				//System.out.println("Packet dest IP matches an Interface IP. Dropping Packet.");
 				return;
 			}
 		}
 		
 		
 		// Here we look for the packet's destination IP address in the route table
-		
+		// if no matches are found the packet is dropped
 		RouteEntry matchRouteEntry = routeTable.lookup(payloadDest);
 		if (matchRouteEntry == null) {
-			System.out.println("No route entry matching destination. Dropping Packet.");
+			//System.out.println("No route entry matching destination. Dropping Packet.");
 			return;
 		}
-		System.out.println("Found Entry!");
-		System.out.printf("matchRouteEntry.destinationAddress: %d\n", matchRouteEntry.getDestinationAddress());
-		System.out.printf("matchRouteEntry.gatewayAddress: %d\n", matchRouteEntry.getGatewayAddress());
-		System.out.printf("matchRouteEntry.maskAddress: %d\n", matchRouteEntry.getMaskAddress());
 		
-		ArpEntry matchArpEntry = arpCache.lookup(payloadDest);
+		// When determining the next hop IP, use gateway address if it is not zero
+		// Otherwise use the destination address of the given IP packet as the next hop
+		int nextHopIp;
+		int matchedGateway = matchRouteEntry.getGatewayAddress();
+		if(matchedGateway != 0) {
+			nextHopIp = matchedGateway;
+		} else {
+			nextHopIp = payloadDest;
+		}
+		
+		//System.out.println("Found Entry!");
+		//System.out.printf("matchRouteEntry.destinationAddress: %d\n", matchRouteEntry.getDestinationAddress());
+		//System.out.printf("matchRouteEntry.gatewayAddress: %d\n", matchRouteEntry.getGatewayAddress());
+		//System.out.printf("matchRouteEntry.maskAddress: %d\n", matchRouteEntry.getMaskAddress());
+		//System.out.printf("nextHopIp: %d\n", nextHopIp);
+		ArpEntry matchArpEntry = arpCache.lookup(nextHopIp);
 		if (matchArpEntry == null) {
-			System.out.println("matchArpEntry not found!");
+			//System.out.println("matchArpEntry not found!");
 			return;
 		} else {
-			System.out.println("matchArpEntry is not null.");
+			//System.out.println("matchArpEntry is not null.");
 		}
 		
+		// Here the new destination MAC address should be the MAC address from 
+		// the ARP entry 
 		MACAddress ArpEntryMac = matchArpEntry.getMac();
-		
 		if (ArpEntryMac == null) {
-			System.out.println("ArpEntryMac is null!");
+			//System.out.println("ArpEntryMac is null!");
 		} else {
-			System.out.println("ArpEntryMac is not null.");
+			//System.out.println("ArpEntryMac is not null.");
 		}
-		
 		etherPacket.setDestinationMACAddress(ArpEntryMac.toString());
+		
+		
 		Iface routeEntryIface = matchRouteEntry.getInterface();
 		
 		if(routeEntryIface == null) {
-			System.out.println("routeEntryIFace is null!");
+			//System.out.println("routeEntryIFace is null!");
 		} else {
-			System.out.println("routeEntryIface is not null.");
+			//System.out.println("routeEntryIface is not null.");
 		}
 		
 		if(routeEntryIface.getMacAddress() == null) {
-			System.out.println("RouteEntryMacAddr is null!");
+			//System.out.println("RouteEntryMacAddr is null!");
 		} else {
-			System.out.println("RouteEntryMacAddr is not null.");
+			//System.out.println("RouteEntryMacAddr is not null.");
 		}
 		
 		if(routeEntryIface.getMacAddress().toString() == null) {
-			System.out.println("RouteEntryMacAddrStr is null!");
+			//System.out.println("RouteEntryMacAddrStr is null!");
 		} else {
-			System.out.println("RouteEntryMacAddrStr is not null.");
+			//System.out.println("RouteEntryMacAddrStr is not null.");
 		}
 		
+		// Here the new source address for the packet is made to be the 
+		// MAC address of the interface that the packet will be sent on
+		
 		etherPacket.setSourceMACAddress(routeEntryIface.getMacAddress().toString());
-		System.out.println("Reached sendPacket!");
+		//System.out.println("Reached sendPacket!");
 		sendPacket(etherPacket, routeEntryIface);
 	}
 }
