@@ -140,7 +140,7 @@ public class Router extends Device
 		}
 		
 		
-		// FORWARDING PACKETS
+		// Here we look for the packet's destination IP address in the route table
 		
 		RouteEntry matchRouteEntry = routeTable.lookup(payloadDest);
 		if (matchRouteEntry == null) {
