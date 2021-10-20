@@ -151,6 +151,9 @@ public class Router extends Device
 			//System.out.println("No route entry matching destination. Dropping Packet.");
 			return;
 		}
+		if (matchRouteEntry.getInterface().equals(inIface)) {
+			return;
+		}
 		
 		// When determining the next hop IP, use gateway address if it is not zero
 		// Otherwise use the destination address of the given IP packet as the next hop
@@ -171,40 +174,40 @@ public class Router extends Device
 		if (matchArpEntry == null) {
 			//System.out.println("matchArpEntry not found!");
 			return;
-		} else {
+		} //else {
 			//System.out.println("matchArpEntry is not null.");
-		}
+		//}
 		
 		// Here the new destination MAC address should be the MAC address from 
 		// the ARP entry 
 		MACAddress ArpEntryMac = matchArpEntry.getMac();
-		if (ArpEntryMac == null) {
+		//if (ArpEntryMac == null) {
 			//System.out.println("ArpEntryMac is null!");
-		} else {
+		//} else {
 			//System.out.println("ArpEntryMac is not null.");
-		}
+		//}
 		etherPacket.setDestinationMACAddress(ArpEntryMac.toString());
 		
 		
 		Iface routeEntryIface = matchRouteEntry.getInterface();
 		
-		if(routeEntryIface == null) {
+		//if(routeEntryIface == null) {
 			//System.out.println("routeEntryIFace is null!");
-		} else {
+		//} else {
 			//System.out.println("routeEntryIface is not null.");
-		}
+		//}
 		
-		if(routeEntryIface.getMacAddress() == null) {
+		//if(routeEntryIface.getMacAddress() == null) {
 			//System.out.println("RouteEntryMacAddr is null!");
-		} else {
+		//} else {
 			//System.out.println("RouteEntryMacAddr is not null.");
-		}
+		//}
 		
-		if(routeEntryIface.getMacAddress().toString() == null) {
+		//if(routeEntryIface.getMacAddress().toString() == null) {
 			//System.out.println("RouteEntryMacAddrStr is null!");
-		} else {
+		//} else {
 			//System.out.println("RouteEntryMacAddrStr is not null.");
-		}
+		//}
 		
 		// Here the new source address for the packet is made to be the 
 		// MAC address of the interface that the packet will be sent on
