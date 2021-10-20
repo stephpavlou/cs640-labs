@@ -56,44 +56,30 @@ public class Switch extends Device
 		
 		// Check table entries to see if src MAC exists in table
 		MACAddress sourceMac = etherPacket.getSourceMAC();
-		//System.out.printf("Checking Table for source MAC: %s\n", sourceMac);
 		SwitchEntry retrievedEntry = switchTable.get(sourceMac.toString());
-		//System.out.println("UPDATING SWITCH TABLE");
 		if (retrievedEntry != null) {
-			//System.out.println("Refreshing table entry.");
-			//System.out.printf("Found entry key: %s\n", sourceMac.toString());
-			
+
 			// If the entry exists, reset the time, and update the Iface in case of a change
 			long curTime = System.currentTimeMillis();
-			//System.out.printf("Setting time to: %d\n", curTime);
 			retrievedEntry.setTimeStamp(curTime);
-			//System.out.printf("Setting Iface to inIface: %s\n", inIface.getName());
 			retrievedEntry.setIfNum(inIface);
 		} else {
 			
 			// If the entry does not exist, make a new entry
-			//System.out.println("Adding new table entry.");
 			long curTime = System.currentTimeMillis();
 			SwitchEntry newEntry = new SwitchEntry(inIface, curTime);
-			//System.out.printf("New Entry key: %s\n", sourceMac.toString());
-			//System.out.printf("New Entry time to: %d\n", curTime);
-			//System.out.printf("New Entry Iface to inIface: %s\n", inIface.getName());
 			switchTable.put(sourceMac.toString(), newEntry);
 		}
 		
 		// Check if Forwarding table contains the current dest MAC
-		//System.out.println("USING SWITCH TABLE TO SEND PACKET");
 		MACAddress destMac = etherPacket.getDestinationMAC();
-		//System.out.printf("destMac: %s\n", destMac.toString());
 		retrievedEntry = switchTable.get(destMac.toString());
 		if (retrievedEntry != null) {
 			
 			// Dest MAC exists in forwarding table, send the packet on interface in table entry
-			//System.out.printf("Entry Found. Sending on %s\n", retrievedEntry.getIfNum().getName());
 			sendPacket(etherPacket, retrievedEntry.getIfNum());
 		}
 		else {
-			//System.out.println("Entry Not Found. Broadcasting.");
 			
 			// Dest MAC does not exist in table -> broadcast on all interfaces except the interface
 			// that the packet was received on
@@ -105,7 +91,6 @@ public class Switch extends Device
 				if(!if_entry.getValue().equals(inIface)) {
 					
 					// Do broadcast to this interface (DEST)
-					//System.out.printf("Broadcasting on: %s\n", if_entry.getValue().getName());
 					if(!sendPacket(etherPacket, if_entry.getValue())){
 						numFail++;
 					}
@@ -137,9 +122,6 @@ public class Switch extends Device
 		*
 		**/
 		SwitchEntry(Iface ifNum, long timeStamp) {
-			//System.out.println("NEW ENTRY:");
-			//System.out.printf("ifNum: %h\n", ifNum);
-			//System.out.printf("timeStamp: %d\n", timeStamp);
 			this.ifNum = ifNum;
 			this.timeStamp = timeStamp;
 		}
@@ -190,16 +172,11 @@ public class Switch extends Device
 		// entries older than 15 seconds. If the thread finds such an entry, it removes the entry
 		// from the list.
 		public void run() {
-			System.out.println("STARTING THREAD");
 			while (true) {
 				for (Map.Entry<String, SwitchEntry> entry : switchTable.entrySet()) {
 					String key = entry.getKey();
 					SwitchEntry value = entry.getValue();
 					if((System.currentTimeMillis() - value.getTimeStamp()) > 15000 ){
-						//System.out.println("REMOVING ENTRY");
-						//System.out.printf("Removed macAddr: %s\n", key);
-						//System.out.printf("Removed value: %h\n", value);
-						//System.out.printf("Removed ifNum: %s\n", value.getIfNum().getName());
 						switchTable.remove(key, value);
 					}
 					
