@@ -54,7 +54,6 @@ public class RouteTable
 	        	   { bestMatch = entry; }
 	           }
 	        }
-			
 			return bestMatch;
 			
 			/*****************************************************************/

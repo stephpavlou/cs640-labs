@@ -29,8 +29,6 @@ public class Main
 		for(int i = 0; i < args.length; i++)
 		{
 			
-			routeTableProvided = false;
-			
 			String arg = args[i];
 			if (arg.equals("-h"))
 			{
