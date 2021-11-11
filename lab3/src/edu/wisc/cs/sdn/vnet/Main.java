@@ -21,9 +21,16 @@ public class Main
 		VNSComm vnsComm = null;
 		Device dev = null;
 		
+		
+		// New value
+		boolean routeTableProvided = false;
+		
 		// Parse arguments
 		for(int i = 0; i < args.length; i++)
 		{
+			
+			routeTableProvided = false;
+			
 			String arg = args[i];
 			if (arg.equals("-h"))
 			{
@@ -39,7 +46,10 @@ public class Main
 			else if (arg.equals("-l"))
 			{ logfile = args[++i]; }
 			else if (arg.equals("-r"))
-			{ routeTableFile = args[++i]; }
+			{ 
+				routeTableFile = args[++i]; 
+				routeTableProvided = true;
+			}
 			else if (arg.equals("-a"))
 			{ arpCacheFile = args[++i]; }
 		}
@@ -88,6 +98,9 @@ public class Main
 			// Read static route table
 			if (routeTableFile != null)
 			{ ((Router)dev).loadRouteTable(routeTableFile); }
+			if(!routeTableProvided) {
+			  ((Router)dev).loadAllIfaces();
+			}
 			
 			// Read static ACP cache
 			if (arpCacheFile != null)

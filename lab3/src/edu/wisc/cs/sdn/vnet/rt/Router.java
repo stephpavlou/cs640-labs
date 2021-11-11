@@ -10,6 +10,10 @@ import net.floodlightcontroller.packet.Data;
 import net.floodlightcontroller.packet.ICMP;
 import net.floodlightcontroller.packet.ARP;
 import net.floodlightcontroller.packet.MACAddress;
+import net.floodlightcontroller.packet.RIPv2;
+import net.floodlightcontroller.packet.RIPv2Entry;
+import net.floodlightcontroller.packet.UDP;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashMap;
@@ -28,11 +32,12 @@ public class Router extends Device
 	private ArpCache arpCache;
 	
 	/** queue for packets */
-	//private ConcurrentHashMap<int, QueuePacket> queuedPackets;
-	
-	//private ConcurrentHashMap<int, ARPRequester> requesterThreads;;
-	
 	private ConcurrentHashMap<Integer, Queue> packetQueues;
+	
+	// Plasce to hold RIP requester and checker thread
+	private RIPResponder ripManager;
+	
+	
 	/**
 	 * Creates a router for a specific host.
 	 * @param host hostname for the router
@@ -42,7 +47,10 @@ public class Router extends Device
 		super(host,logfile);
 		this.routeTable = new RouteTable();
 		this.arpCache = new ArpCache();
+		
+		// This sets up a way to store queues for packets while sending ARP requests
 		this.packetQueues = new ConcurrentHashMap<Integer, Queue>();
+		
 	}
 	
 	/**
@@ -105,6 +113,23 @@ public class Router extends Device
 		switch(etherPacket.getEtherType())
 		{
 		case Ethernet.TYPE_IPv4:
+			IPv4 ip = (IPv4)etherPacket.getPayload();
+			
+			// TODO: Determine how to receive Solicited responses (that have a direct IP address)
+			System.out.printf("ip.getDestinationAddress(): %d\n", ip.getDestinationAddress());
+			System.out.printf("IPv4.toIPv4Address(\"224.0.0.9\"): %d\n", IPv4.toIPv4Address("224.0.0.9"));
+			System.out.printf("ip.getProtocol(): %d\n", ip.getProtocol());
+			System.out.printf("IPv4.PROTOCOL_UDP: %d\n", IPv4.PROTOCOL_UDP);
+			if((ip.getProtocol() == IPv4.PROTOCOL_UDP)){
+				UDP udp = (UDP)ip.getPayload();
+				System.out.printf("udp.getDestinationPort(): %d\n",udp.getDestinationPort());
+				System.out.printf("(short)520: %d\n", (short)520);
+				if(udp.getDestinationPort() == (short)520) {
+					System.out.println("Received Packet is a RIP packet");
+					handleRipPacket(etherPacket, inIface);
+					break;
+				}
+			}
 			this.handleIpPacket(etherPacket, inIface);
 			break;
 		case Ethernet.TYPE_ARP:
@@ -178,6 +203,7 @@ public class Router extends Device
         int dstAddr = ipPacket.getDestinationAddress();
 
         // Find matching route table entry 
+		System.out.println("Forward IP packet lookup");
         RouteEntry bestMatch = this.routeTable.lookup(dstAddr);
 
         // If no entry matched, do nothing
@@ -271,6 +297,76 @@ public class Router extends Device
 	}
 	
 	
+	private void RIPmake(Ethernet etherPacket, Iface outIface, boolean isResponse, boolean isSolicited) {
+		Ethernet ether = new Ethernet();
+		IPv4 ip = new IPv4();
+		UDP udp = new UDP();
+		RIPv2 rip = new RIPv2();
+		
+		ether.setPayload(ip);
+		ip.setPayload(udp);
+		udp.setPayload(rip);
+		
+		// Ethernet Setup
+		// Set destination MAC
+		if((isResponse) && (isSolicited)) {
+			ether.setDestinationMACAddress(etherPacket.getSourceMACAddress());
+		} else {
+			ether.setDestinationMACAddress("FF:FF:FF:FF:FF:FF");
+		}
+		
+		// Set source MAC
+		ether.setSourceMACAddress(outIface.getMacAddress().toBytes());
+		
+		// Set Ether Type
+		ether.setEtherType(Ethernet.TYPE_IPv4);
+		
+	
+		// IP setup
+		// Set TTl
+		ip.setTtl((byte)15);
+		
+		// Set Protocol
+		ip.setProtocol(IPv4.PROTOCOL_UDP);
+		
+		// Set Source Address
+		ip.setSourceAddress(outIface.getIpAddress());
+		
+		// Set Destination Address
+		if ((isResponse) && (isSolicited)) {
+			ip.setDestinationAddress(((IPv4)etherPacket.getPayload()).getSourceAddress());
+		} else {
+			ip.setDestinationAddress("224.0.0.9");
+		}
+		
+		// UDP setup
+		// Set up Source Port
+		udp.setSourcePort((short)520);
+		
+		// Set up Destination Port
+		udp.setDestinationPort((short)520);
+		
+		
+		// RIP setup
+		// Set Command
+		if(isResponse) {
+			// Response
+			rip.setCommand(RIPv2.COMMAND_RESPONSE);
+			
+			// add on a RIPv2 entry for each table entry
+			for (RouteEntry entry: routeTable.getEntries()) {
+				RIPv2Entry ripEntry = new RIPv2Entry(entry.getDestinationAddress(), entry.getMaskAddress(), entry.getMetric());
+				rip.addEntry(ripEntry);
+			}
+			
+		} else {
+			rip.setCommand(RIPv2.COMMAND_REQUEST);
+		}
+		
+		this.sendPacket(ether, outIface);
+	}
+	
+	
 	private void ICMPmake(Ethernet etherPacket, Iface inIface, byte icmpType, byte icmpCode) {
 		Ethernet ether = new Ethernet();
 		IPv4 ip = new IPv4();
@@ -286,6 +382,9 @@ public class Router extends Device
 		
 		// Setting Source MAC address
 		RouteEntry sourceEntry = routeTable.lookup(((IPv4)etherPacket.getPayload()).getSourceAddress());
+		if(sourceEntry == null) {
+			return;
+		}
 		Iface sourceIface = sourceEntry.getInterface();
 		ether.setSourceMACAddress(sourceIface.getMacAddress().toBytes());
 		//ether.setSourceMACAddress(inIface.getMacAddress.toBytes());
@@ -360,6 +459,64 @@ public class Router extends Device
 			System.out.println(etherPacket.toString());
 			this.sendPacket(etherPacket, outIface);
 		}
+	}
+	
+	private void handleRipPacket(Ethernet etherPacket, Iface inIface) {
+		System.out.println("Handle RIP packet");
+		// Breakdown Breakdown
+		IPv4 ip = (IPv4)etherPacket.getPayload();
+		UDP udp = (UDP)ip.getPayload();
+		RIPv2 rip = (RIPv2)udp.getPayload();
+		if (rip.getCommand() == RIPv2.COMMAND_REQUEST) {
+			// This is a request, send RIP response
+			RIPmake(etherPacket, inIface, true, true);
+		} else if(rip.getCommand() == RIPv2.COMMAND_RESPONSE) {
+			// This is a response, update table
+			List<RIPv2Entry> ripEntries = rip.getEntries();
+			for(RIPv2Entry ripEntry : ripEntries) {
+				
+				RouteEntry bestEntry = routeTable.find(ripEntry.getAddress(), ripEntry.getSubnetMask());
+				
+				if(bestEntry == null) {
+					
+					// This entry Doesn't exist, add to route table
+					System.out.println("Handling RIP Response, Adding new Entry");
+					routeTable.insert(ripEntry.getAddress(), ip.getSourceAddress(), ripEntry.getSubnetMask(), inIface, ripEntry.getMetric() + 1, false);
+				} else {
+					// Entry is in table, check if needs to be updated
+					System.out.println("Handling RIP Packet, entry match Found:");
+					System.out.println(ripEntry.toString());
+					System.out.println(bestEntry.toString());
+					if ((bestEntry.getMetric() > (ripEntry.getMetric() + 1)) || (bestEntry.getGatewayAddress() == ip.getSourceAddress())) {
+						System.out.println("Handling RIP Response, Updating Entry");
+						// Found a better path, update entry
+						bestEntry.setGatewayAddress(ip.getSourceAddress());
+						bestEntry.setMetric(ripEntry.getMetric() + 1);
+						bestEntry.setInterface(inIface);
+						bestEntry.setUpdateTime();
+					}
+				}
+			}
+		}
+		
+		
+	}
+	
+	public void loadAllIfaces() {
+		HashMap<String, Iface> interfaces = (HashMap)getInterfaces();
+		System.out.println("Adding interfaces to RouteTable Entries!");
+		for(Map.Entry<String, Iface> if_entry : interfaces.entrySet()) {
+			Iface curIface = if_entry.getValue();
+			System.out.printf("DestAddresss: %d\n", (curIface.getIpAddress() & curIface.getSubnetMask()));
+			System.out.printf("Gateway: %d\n", 0);
+			System.out.printf("Subnet Mask: %d\n", curIface.getSubnetMask());
+			System.out.printf("Interface: %s\n", if_entry.getValue().toString());
+			System.out.printf("Metric: %d\n", 0);
+			System.out.printf("directlyConnected: %b\n", true);
+			routeTable.insert((curIface.getIpAddress() & curIface.getSubnetMask()), 0, curIface.getSubnetMask(), if_entry.getValue(), 0, true);
+		}
+		ripManager = new RIPResponder(routeTable);
+		ripManager.start();
 	}
 	
 	private void handleArpPacket(Ethernet etherPacket, Iface inIface) {
@@ -486,6 +643,55 @@ public class Router extends Device
 			this.queuedPackets = new ConcurrentHashMap<String, QueuePacket>();
 		}
 	}
+	
+	
+	class RIPResponder extends Thread {
+		private RouteTable routeTable;
+		public RIPResponder(RouteTable routeTable) {
+			this.routeTable = routeTable;
+		}
+		
+		public void run() {
+			long prevCheckTime = System.currentTimeMillis();
+			
+			// Send RIP request on startup
+			HashMap<String, Iface> interfaces = (HashMap)getInterfaces();
+			for(Map.Entry<String, Iface> if_entry : interfaces.entrySet()) {
+					RIPmake(null, if_entry.getValue(), false, false);
+			}
+			
+			while (true) {
+				
+				if((System.currentTimeMillis() - prevCheckTime) >= 10000) {
+					for(Map.Entry<String, Iface> if_entry : interfaces.entrySet()) {
+						if(if_entry == null) {
+							System.out.println("IN RIPRESPONDER: if_enty == null");
+						} else if(if_entry.getValue() == null) {
+							System.out.println("IN RIPRESPONDER: if_enty.getValue() == null");
+						}
+						RIPmake(null, if_entry.getValue(), true, false);
+					}
+					prevCheckTime = System.currentTimeMillis();
+				}
+				
+				
+				for(RouteEntry entry: routeTable.getEntries()) {
+					if(!entry.isDirectlyConnected()) {
+						if((System.currentTimeMillis() - entry.getUpdateTime()) >= 30000){
+							routeTable.remove(entry.getDestinationAddress(), entry.getMaskAddress());
+						}
+					}
+				}
+								
+				
+				try {
+					this.sleep((long)1000);
+				} catch (Exception ex) {
+				}
+			}
+		}	
+	}
+	
 	
 	class ARPRequester extends Thread {
 		private volatile boolean found;

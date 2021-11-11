@@ -39,7 +39,8 @@ public class RouteTable
         {
 			/*****************************************************************/
 			/* TODO: Find the route entry with the longest prefix match      */
-			
+			System.out.println("In RouteTable lookup");
+			System.out.println(this.toString());
 	        RouteEntry bestMatch = null;
 	        for (RouteEntry entry : this.entries)
 	        {
@@ -143,7 +144,8 @@ public class RouteTable
 			}
 			
 			// Add an entry to the route table
-			this.insert(dstIp, gwIp, maskIp, iface);
+			//Modified to fit
+			this.insert(dstIp, gwIp, maskIp, iface, 0, true);
 		}
 	
 		// Close the file
@@ -159,9 +161,12 @@ public class RouteTable
 	 * @param iface router interface out which to send packets to reach the 
 	 *        destination or gateway
 	 */
-	public void insert(int dstIp, int gwIp, int maskIp, Iface iface)
+	 // modified with new fields
+	public void insert(int dstIp, int gwIp, int maskIp, Iface iface, int metric, boolean directlyConnected)
 	{
-		RouteEntry entry = new RouteEntry(dstIp, gwIp, maskIp, iface);
+		RouteEntry entry = new RouteEntry(dstIp, gwIp, maskIp, iface, metric, directlyConnected);
+		System.out.println("Route Table: Inserting new Entry");
+		System.out.println(entry.toString());
         synchronized(this.entries)
         { 
             this.entries.add(entry);
@@ -181,6 +186,8 @@ public class RouteTable
             RouteEntry entry = this.find(dstIp, maskIp);
             if (null == entry)
             { return false; }
+			System.out.println("RouteTable: Removing Entry");
+			System.out.println(entry.toString());
             this.entries.remove(entry);
         }
         return true;
@@ -214,7 +221,8 @@ public class RouteTable
      * @param maskIp subnet mask of the entry to find
      * @return a matching entry if one was found, otherwise null
 	 */
-    private RouteEntry find(int dstIp, int maskIp)
+	 // MODIFIED TO PUBLIC
+    public RouteEntry find(int dstIp, int maskIp)
     {
         synchronized(this.entries)
         {
@@ -235,10 +243,16 @@ public class RouteTable
             if (0 == this.entries.size())
             { return " WARNING: route table empty"; }
             
-            String result = "Destination\tGateway\t\tMask\t\tIface\n";
+            String result = "Destination\tGateway\t\tMask\t\tIface\t\tmetric\tupdateTime\tdirectlyConnected\n";
             for (RouteEntry entry : entries)
             { result += entry.toString()+"\n"; }
 		    return result;
         }
+	}
+	
+	
+	// NEW FUNCTION
+	public List<RouteEntry> getEntries() {
+		return this.entries;
 	}
 }
