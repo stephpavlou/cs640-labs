@@ -22,7 +22,7 @@ public class Main
 		Device dev = null;
 		
 		
-		// New value
+		// New value to see if route table was provided
 		boolean routeTableProvided = false;
 		
 		// Parse arguments
@@ -96,6 +96,7 @@ public class Main
 			// Read static route table
 			if (routeTableFile != null)
 			{ ((Router)dev).loadRouteTable(routeTableFile); }
+			// If no route table was provided, load entries from interfaces
 			if(!routeTableProvided) {
 			  ((Router)dev).loadAllIfaces();
 			}

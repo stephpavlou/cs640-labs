@@ -23,9 +23,13 @@ public class RouteEntry
 	private Iface iface;
 	
 	// NEW FIELDS
-	
+	// Added to keep track of distance to destination
 	private int metric;
+	
+	// Added to track how much time since last update
 	private long updateTime;
+	
+	// Used to see if this is an entry that can be removed by timeout (was from interface or not)
 	private boolean directlyConnected;
 	// NEW FIELDS END
 	/**
@@ -52,6 +56,9 @@ public class RouteEntry
 	}
 	
 	// New functions
+	
+	// Getters and setters for new fields of class
+	
 	public boolean isDirectlyConnected() {
 		return this.directlyConnected;
 	}
@@ -107,6 +114,7 @@ public class RouteEntry
     public void setInterface(Iface iface)
     { this.iface = iface; }
 	
+	//Updated to print new values
 	public String toString()
 	{
 		return String.format("%s \t%s \t%s \t%s \t%d \t%d \t%b",

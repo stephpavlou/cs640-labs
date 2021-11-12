@@ -39,8 +39,6 @@ public class RouteTable
         {
 			/*****************************************************************/
 			/* TODO: Find the route entry with the longest prefix match      */
-			System.out.println("In RouteTable lookup");
-			System.out.println(this.toString());
 	        RouteEntry bestMatch = null;
 	        for (RouteEntry entry : this.entries)
 	        {
@@ -164,8 +162,6 @@ public class RouteTable
 	public void insert(int dstIp, int gwIp, int maskIp, Iface iface, int metric, boolean directlyConnected)
 	{
 		RouteEntry entry = new RouteEntry(dstIp, gwIp, maskIp, iface, metric, directlyConnected);
-		System.out.println("Route Table: Inserting new Entry");
-		System.out.println(entry.toString());
         synchronized(this.entries)
         { 
             this.entries.add(entry);
@@ -185,8 +181,6 @@ public class RouteTable
             RouteEntry entry = this.find(dstIp, maskIp);
             if (null == entry)
             { return false; }
-			System.out.println("RouteTable: Removing Entry");
-			System.out.println(entry.toString());
             this.entries.remove(entry);
         }
         return true;
@@ -235,6 +229,7 @@ public class RouteTable
         return null;
     }
 	
+	// Added new values
 	public String toString()
 	{
         synchronized(this.entries)

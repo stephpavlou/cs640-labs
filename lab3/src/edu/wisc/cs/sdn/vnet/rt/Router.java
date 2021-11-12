@@ -14,6 +14,7 @@ import net.floodlightcontroller.packet.RIPv2;
 import net.floodlightcontroller.packet.RIPv2Entry;
 import net.floodlightcontroller.packet.UDP;
 import java.util.List;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashMap;
@@ -115,17 +116,10 @@ public class Router extends Device
 		case Ethernet.TYPE_IPv4:
 			IPv4 ip = (IPv4)etherPacket.getPayload();
 			
-			// TODO: Determine how to receive Solicited responses (that have a direct IP address)
-			System.out.printf("ip.getDestinationAddress(): %d\n", ip.getDestinationAddress());
-			System.out.printf("IPv4.toIPv4Address(\"224.0.0.9\"): %d\n", IPv4.toIPv4Address("224.0.0.9"));
-			System.out.printf("ip.getProtocol(): %d\n", ip.getProtocol());
-			System.out.printf("IPv4.PROTOCOL_UDP: %d\n", IPv4.PROTOCOL_UDP);
+			// Check if the packet is a RIP packet, if so handle accordingly
 			if((ip.getProtocol() == IPv4.PROTOCOL_UDP)){
 				UDP udp = (UDP)ip.getPayload();
-				System.out.printf("udp.getDestinationPort(): %d\n",udp.getDestinationPort());
-				System.out.printf("(short)520: %d\n", (short)520);
 				if(udp.getDestinationPort() == (short)520) {
-					System.out.println("Received Packet is a RIP packet");
 					handleRipPacket(etherPacket, inIface);
 					break;
 				}
@@ -203,7 +197,6 @@ public class Router extends Device
         int dstAddr = ipPacket.getDestinationAddress();
 
         // Find matching route table entry 
-		System.out.println("Forward IP packet lookup");
         RouteEntry bestMatch = this.routeTable.lookup(dstAddr);
 
         // If no entry matched, do nothing
@@ -226,8 +219,6 @@ public class Router extends Device
         { nextHop = dstAddr; }
 
         // Set destination MAC address in Ethernet header
-		System.out.printf("dstAddr: %d\n", dstAddr);
-		System.out.printf("nextHop: %d\n", nextHop);
 		checkARPCache(etherPacket, inIface, nextHop, outIface);
     }
 	
@@ -237,66 +228,69 @@ public class Router extends Device
 		// was received on, for case of empty ARPCache on startup)
 		HashMap<String, Iface> interfaces = (HashMap)getInterfaces();
 		for(Map.Entry<String, Iface> if_entry : interfaces.entrySet()) {
-				//if(!if_entry.getValue().equals(inIface)) {
+				
 					
-					Ethernet ether = new Ethernet();
-					ARP arp = new ARP();
-					ether.setPayload(arp);
-					
-					// Ethernet stuff
-					// Set Ethernet Type
-					ether.setEtherType(Ethernet.TYPE_ARP);
-					
-					// Set Source MAC
-					ether.setSourceMACAddress(if_entry.getValue().getMacAddress().toBytes());
-					
-					// Set Destination MAC
-					ether.setDestinationMACAddress("FF:FF:FF:FF:FF:FF");
-					
-					// ARP stuff
-					// Set Hardware Type
-					arp.setHardwareType(ARP.HW_TYPE_ETHERNET);
-					
-					// Set Protocol Type
-					arp.setProtocolType(ARP.PROTO_TYPE_IP);
-					
-					// Set Hardware address length
-					arp.setHardwareAddressLength((byte)Ethernet.DATALAYER_ADDRESS_LENGTH);
-					
-					// Set Protocol addr length
-					arp.setProtocolAddressLength((byte)4);
-					
-					// Set Opcode
-					arp.setOpCode(ARP.OP_REQUEST);
-					
-					// Set sender Hardware address
-					arp.setSenderHardwareAddress(if_entry.getValue().getMacAddress().toBytes());
-					
-					// Set Sender Protocol Address
-					arp.setSenderProtocolAddress(if_entry.getValue().getIpAddress());
-					
-					// Set Target Hardware Address
-					byte[] empty = new byte[arp.getHardwareAddressLength()];
-					for (int i = 0; i < arp.getHardwareAddressLength(); i++) {
-						empty[i] = 0;
-					}			
-					arp.setTargetHardwareAddress(empty);
-					
-					// Set Target protocol Address
-					arp.setTargetProtocolAddress(nextHop);
+			Ethernet ether = new Ethernet();
+			ARP arp = new ARP();
+			ether.setPayload(arp);
+			
+			// Ethernet stuff
+			// Set Ethernet Type
+			ether.setEtherType(Ethernet.TYPE_ARP);
+			
+			// Set Source MAC
+			ether.setSourceMACAddress(if_entry.getValue().getMacAddress().toBytes());
+			
+			// Set Destination MAC
+			ether.setDestinationMACAddress("FF:FF:FF:FF:FF:FF");
+			
+			// ARP stuff
+			// Set Hardware Type
+			arp.setHardwareType(ARP.HW_TYPE_ETHERNET);
+			
+			// Set Protocol Type
+			arp.setProtocolType(ARP.PROTO_TYPE_IP);
+			
+			// Set Hardware address length
+			arp.setHardwareAddressLength((byte)Ethernet.DATALAYER_ADDRESS_LENGTH);
+			
+			// Set Protocol addr length
+			arp.setProtocolAddressLength((byte)4);
+			
+			// Set Opcode
+			arp.setOpCode(ARP.OP_REQUEST);
+			
+			// Set sender Hardware address
+			arp.setSenderHardwareAddress(if_entry.getValue().getMacAddress().toBytes());
+			
+			// Set Sender Protocol Address
+			arp.setSenderProtocolAddress(if_entry.getValue().getIpAddress());
+			
+			// Set Target Hardware Address
+			byte[] empty = new byte[arp.getHardwareAddressLength()];
+			for (int i = 0; i < arp.getHardwareAddressLength(); i++) {
+				empty[i] = 0;
+			}			
+			arp.setTargetHardwareAddress(empty);
+			
+			// Set Target protocol Address
+			arp.setTargetProtocolAddress(nextHop);
 
-					// Do broadcast to this interface (DEST)
-					System.out.println("SENDING ARP REQUEST");
-					System.out.println(ether.toString());
-					System.out.printf("Iface: %s", if_entry.getValue().toString());
-					this.sendPacket(ether, if_entry.getValue());
-					
-				//}
+			// Do broadcast to this interface (DEST)
+			this.sendPacket(ether, if_entry.getValue());
+			
+		
 			}
 		
 	}
 	
-	
+	/**
+	 * Handles the creation and sending of a RIP packet
+	 * @param etherPacket the Ethernet packet that was received if relevent
+	 * @param outIface the interface on which the RIP packet should be sent
+	 * @param isResponse signals if the RIP packet is a response
+	 * @param isSolicited signals if the packet is solicited
+	 */
 	private void RIPmake(Ethernet etherPacket, Iface outIface, boolean isResponse, boolean isSolicited) {
 		Ethernet ether = new Ethernet();
 		IPv4 ip = new IPv4();
@@ -366,7 +360,11 @@ public class Router extends Device
 		this.sendPacket(ether, outIface);
 	}
 	
-	
+	/**
+	 * Handles the creation and sending of a ICMP packet
+	 * @param etherPacket the Ethernet packet that was received that prompted the ICMP
+	 * @param inIface the interface on which the received packet came into
+	 */
 	private void ICMPmake(Ethernet etherPacket, Iface inIface, byte icmpType, byte icmpCode) {
 		Ethernet ether = new Ethernet();
 		IPv4 ip = new IPv4();
@@ -433,44 +431,65 @@ public class Router extends Device
 			}
 			data.setData(newData);
 		}
-		System.out.println("MAKING ICMP MESSAGE");
+		
+		// Attempts to send packet
 		checkARPCache(ether, inIface, nextHop, bestMatch.getInterface());
 	}
 	
+	/**
+	 * Handles the attempt to send packets, if there is no entry in the ARP cache
+	 * it places the packet into a queue and creates a thread to send ARP requests.
+	 * If there is an ARP entry then the packet is sent right away
+	 * @param etherPacket the Ethernet packet that was received
+	 * @param inIface, the interface that the packet was received on
+	 * @param nextHop, the IP of the next hop for the packet
+	 * @param outIface, the interface the packet should be sent out on
+	 */
 	private void checkARPCache(Ethernet etherPacket, Iface inIface, int nextHop, Iface outIface) {
 		ArpEntry arpEntry = this.arpCache.lookup(nextHop);
+		
+		// If there is no arp Entry, queue the packet
         if (null == arpEntry) { 
+	
+			// If there is no queue for that IP address, make a new queue and add packet to queue
 			if(!packetQueues.containsKey(nextHop)) {
-				System.out.println("Making New Queue");
+				
 				ARPRequester newRequester = new ARPRequester(packetQueues, etherPacket, inIface, nextHop);				
 				Queue newQueue = new Queue(newRequester);
-				newQueue.queuedPackets.put(etherPacket.getSourceMAC().toString(), new QueuePacket(etherPacket, inIface));
+				newQueue.safeInsert(new QueuePacket(etherPacket, inIface));
 				packetQueues.put(nextHop, newQueue);
 				newRequester.start();
 				
+			// If there already is a queue, add the packet to the queue
 			} else {
-				System.out.println("Adding packet to Queue");
 				Queue curQueue = packetQueues.get(nextHop);
-				curQueue.queuedPackets.put(etherPacket.getSourceMAC().toString(), new QueuePacket(etherPacket, inIface));
+				curQueue.safeInsert(new QueuePacket(etherPacket, inIface));
 			}
+			
+		// If an ARP entry was found, send packet
 		} else {
 			etherPacket.setDestinationMACAddress(arpEntry.getMac().toBytes());
-			System.out.println("FORWARDING IP PACKET:");
-			System.out.println(etherPacket.toString());
 			this.sendPacket(etherPacket, outIface);
 		}
 	}
 	
+	/**
+	 * Handles the reception of RIP packets, dealing with requests and responses
+	 * @param etherPacket the ethernet packet that was received
+	 * @param inIface the interface the packet was received on
+	 */
 	private void handleRipPacket(Ethernet etherPacket, Iface inIface) {
-		System.out.println("Handle RIP packet");
+		
 		// Breakdown Breakdown
 		IPv4 ip = (IPv4)etherPacket.getPayload();
 		UDP udp = (UDP)ip.getPayload();
 		RIPv2 rip = (RIPv2)udp.getPayload();
 		if (rip.getCommand() == RIPv2.COMMAND_REQUEST) {
+			
 			// This is a request, send RIP response
 			RIPmake(etherPacket, inIface, true, true);
 		} else if(rip.getCommand() == RIPv2.COMMAND_RESPONSE) {
+			
 			// This is a response, update table
 			List<RIPv2Entry> ripEntries = rip.getEntries();
 			for(RIPv2Entry ripEntry : ripEntries) {
@@ -480,15 +499,12 @@ public class Router extends Device
 				if(bestEntry == null) {
 					
 					// This entry Doesn't exist, add to route table
-					System.out.println("Handling RIP Response, Adding new Entry");
 					routeTable.insert(ripEntry.getAddress(), ip.getSourceAddress(), ripEntry.getSubnetMask(), inIface, ripEntry.getMetric() + 1, false);
 				} else {
+					
 					// Entry is in table, check if needs to be updated
-					System.out.println("Handling RIP Packet, entry match Found:");
-					System.out.println(ripEntry.toString());
-					System.out.println(bestEntry.toString());
 					if ((bestEntry.getMetric() > (ripEntry.getMetric() + 1)) || (bestEntry.getGatewayAddress() == ip.getSourceAddress())) {
-						System.out.println("Handling RIP Response, Updating Entry");
+						
 						// Found a better path, update entry
 						bestEntry.setGatewayAddress(ip.getSourceAddress());
 						bestEntry.setMetric(ripEntry.getMetric() + 1);
@@ -502,28 +518,31 @@ public class Router extends Device
 		
 	}
 	
+	/**
+	 * Adds all interfaces as RouteEntries to routeTable and
+	 * starts thread to manage RouteTable
+	 */
 	public void loadAllIfaces() {
 		HashMap<String, Iface> interfaces = (HashMap)getInterfaces();
-		System.out.println("Adding interfaces to RouteTable Entries!");
 		for(Map.Entry<String, Iface> if_entry : interfaces.entrySet()) {
 			Iface curIface = if_entry.getValue();
-			System.out.printf("DestAddresss: %d\n", (curIface.getIpAddress() & curIface.getSubnetMask()));
-			System.out.printf("Gateway: %d\n", 0);
-			System.out.printf("Subnet Mask: %d\n", curIface.getSubnetMask());
-			System.out.printf("Interface: %s\n", if_entry.getValue().toString());
-			System.out.printf("Metric: %d\n", 0);
-			System.out.printf("directlyConnected: %b\n", true);
+			
+			// Add an entry to the route table for this interface
 			routeTable.insert((curIface.getIpAddress() & curIface.getSubnetMask()), 0, curIface.getSubnetMask(), if_entry.getValue(), 0, true);
 		}
+		// Without static Routetable, start thread to manage route table entries
 		ripManager = new RIPResponder(routeTable);
 		ripManager.start();
 	}
 	
+	
+	/**
+	 * Handles the reception of an ARP packet
+	 * @param etherPacket the Ethernet packet that was received
+	 * @param inIface, the interface the packet was received on
+	 */
 	private void handleArpPacket(Ethernet etherPacket, Iface inIface) {
-		System.out.println("Handling ARP Packet!");
 		// Make sure it's an ARP packet
-		System.out.printf("EtherType: %d", etherPacket.getEtherType());
-		System.out.printf("ArpType: %d", Ethernet.TYPE_ARP);
 		if (etherPacket.getEtherType() != Ethernet.TYPE_ARP) { 
 			return; 	
 		} 
@@ -532,7 +551,7 @@ public class Router extends Device
 		int targetIp = ByteBuffer.wrap(arpPacket.getTargetProtocolAddress()).getInt();
 		if ((arpPacket.getOpCode() == ARP.OP_REQUEST) && (targetIp == inIface.getIpAddress())) {
 			
-			// System.out.println("MAKING ARP REPLY!");
+			
 			// Make ARP reply packet
 			Ethernet ether = new Ethernet();
 			ARP arp = new ARP();
@@ -577,20 +596,10 @@ public class Router extends Device
 			arp.setTargetProtocolAddress(arpPacket.getSenderProtocolAddress());
 			
 			
-			// System.out.println("ORIGINAL PACKET");
-			// System.out.println(etherPacket.toString());
-			// System.out.println("NEW PACKET");
-			// System.out.println(ether.toString());
-			
 			this.sendPacket(ether, inIface);
 		}
-		System.out.printf("OpCode: %d",arpPacket.getOpCode());
-		System.out.printf("OP_REPLY: %d",ARP.OP_REPLY);
-		System.out.printf("targetIP: %d", targetIp);
-		System.out.printf("InterfaceIp: %d", inIface.getIpAddress());
 		
 		if ((arpPacket.getOpCode() == ARP.OP_REPLY) && (targetIp == inIface.getIpAddress())) {
-			System.out.println("ARP REPLY RECEIVED");
 			int ipAddr = ByteBuffer.wrap(arpPacket.getSenderProtocolAddress()).getInt();
 			MACAddress macAddr = new MACAddress(arpPacket.getSenderHardwareAddress());
 			arpCache.insert(macAddr, ipAddr);
@@ -598,31 +607,28 @@ public class Router extends Device
 			// Clear queue
 			Queue curQueue = packetQueues.get(ipAddr);
 			if(curQueue == null) {
-				System.out.println("curQueue is null");
 				return;
 			}
 			
 			// Signal thread that the IP address was found
 			curQueue.requester.found();
-			ConcurrentHashMap<String, QueuePacket> queuedPackets = curQueue.queuedPackets;
-			for (Map.Entry<String, QueuePacket> entry: queuedPackets.entrySet()) {
-				QueuePacket value = entry.getValue();
+			LinkedList<QueuePacket> queuedPackets = curQueue.queuedPackets;
+			int listSize = queuedPackets.size();
+			for(int i = 0; i < listSize; i++ ) {
+				QueuePacket value = curQueue.safeRemove();
 				value.ether.setDestinationMACAddress(macAddr.toBytes());
-				System.out.println("SENDING OUT PACKET FROM QUEUE");
-				System.out.printf(value.ether.toString());
-				System.out.printf("Iface: %s\n", inIface.toString());
 				if(!sendPacket(value.ether, inIface)) {
 					System.out.println("ERROR SENDING PACKET");
 				}
-				queuedPackets.remove(entry.getKey());
 			}
 			packetQueues.remove(ipAddr);
-			System.out.println("ARP REPLY COMPLETED");
 		}
 		
 	}
 	
-	
+	/**
+	 * Object used for queued packets while waiting for ARP replies.
+	 */
 	private class QueuePacket {
 		Ethernet ether;
 		Iface inIface;
@@ -632,25 +638,54 @@ public class Router extends Device
 			this.inIface = inIface;
 		}
 	}
+	
+	/**
+	 * Object used as a queue for multiple packets waiting for an ARP response from the 
+	 * same IP address
+	 */
 	private class Queue {
 		ARPRequester requester;
 		// Use this instead of a linked list as this is meant to be used
 		// for concurrency
-		ConcurrentHashMap<String, QueuePacket> queuedPackets;
+		LinkedList<QueuePacket> queuedPackets;
+		//ConcurrentHashMap<String, QueuePacket> queuedPackets;
 		
+		//Constructor method
 		public Queue(ARPRequester newRequester) {
 			this.requester = newRequester;
-			this.queuedPackets = new ConcurrentHashMap<String, QueuePacket>();
+			this.queuedPackets = new LinkedList<QueuePacket>();
+		}
+		
+		/**
+		* As a LinkedList is being used, this is a thread-safe insert function
+		*/
+		public void safeInsert(QueuePacket queuePacket) {
+			synchronized(this.queuedPackets) {
+				this.queuedPackets.add(queuePacket);
+			}
+		}
+		/**
+		 * As a Linked List is being used, this is a thread-safe removal function
+		 */
+		public QueuePacket safeRemove() {
+			synchronized(this.queuedPackets) {
+				return this.queuedPackets.remove(0);
+			}
 		}
 	}
 	
-	
+	/**
+	 * Thread to manage the sending of Unsolicited RIP replies and
+	 * removing route entries from the table if they have not been
+	 * updated in 30 seconds
+	 */
 	class RIPResponder extends Thread {
 		private RouteTable routeTable;
 		public RIPResponder(RouteTable routeTable) {
 			this.routeTable = routeTable;
 		}
 		
+		//This starts the thread
 		public void run() {
 			long prevCheckTime = System.currentTimeMillis();
 			
@@ -661,20 +696,16 @@ public class Router extends Device
 			}
 			
 			while (true) {
-				
+				// If it has been more than 10 seconds since previous unsolicited broadcast
+				// broadcast again
 				if((System.currentTimeMillis() - prevCheckTime) >= 10000) {
 					for(Map.Entry<String, Iface> if_entry : interfaces.entrySet()) {
-						if(if_entry == null) {
-							System.out.println("IN RIPRESPONDER: if_enty == null");
-						} else if(if_entry.getValue() == null) {
-							System.out.println("IN RIPRESPONDER: if_enty.getValue() == null");
-						}
 						RIPmake(null, if_entry.getValue(), true, false);
 					}
 					prevCheckTime = System.currentTimeMillis();
 				}
 				
-				
+				// If any entry has not been updated in 30 seconds, remove the entry
 				for(RouteEntry entry: routeTable.getEntries()) {
 					if(!entry.isDirectlyConnected()) {
 						if((System.currentTimeMillis() - entry.getUpdateTime()) >= 30000){
@@ -683,7 +714,7 @@ public class Router extends Device
 					}
 				}
 								
-				
+				// Check every second (don't need thread to be running all the time)
 				try {
 					this.sleep((long)1000);
 				} catch (Exception ex) {
@@ -692,7 +723,10 @@ public class Router extends Device
 		}	
 	}
 	
-	
+	/**
+	 * Thread used for every queue of packets while the process of sending ARP
+	 * requests and waiting for the responses.
+	 */
 	class ARPRequester extends Thread {
 		private volatile boolean found;
 		private boolean timeout;
@@ -714,11 +748,15 @@ public class Router extends Device
 			this.nextHop = nextHop;
 		}
 		
+		// Signal from main thread that an ARP response has arrived and the ARP entry has
+		// been added
 		public void found() {
 			this.found = true;
 		}
 		
 		public void run() {
+			
+			// Send packets for 3 seconds or until a response has been received
 			while ((!found) && (!timeout)) {
 				SendARPRequest(etherPacket, inIface, nextHop);
 				numPackets++;
@@ -731,14 +769,17 @@ public class Router extends Device
 					timeout = true;
 				}
 			}
+			// If no response has been received, send out an ICMP packet for each queued packet
 			if (!found) {
 				// Remove queued packets
 				Queue curQueue = packetQueues.get(nextHop);
-				ConcurrentHashMap<String, QueuePacket> queuedPackets = curQueue.queuedPackets;
-				for (Map.Entry<String, QueuePacket> entry: queuedPackets.entrySet()) {
-					ICMPmake(entry.getValue().ether, entry.getValue().inIface, (byte)3, (byte)1);
-					queuedPackets.remove(entry.getKey());
+				LinkedList<QueuePacket> queuedPackets = curQueue.queuedPackets;
+				int listSize = queuedPackets.size();
+				for( int i = 0 ; i < listSize; i++) {
+					QueuePacket curPacket = curQueue.safeRemove();
+					ICMPmake(curPacket.ether, curPacket.inIface, (byte)3, (byte)1);
 				}
+				// Remove Queue from collection of queues
 				packetQueues.remove(nextHop);
 			}	
 		}
